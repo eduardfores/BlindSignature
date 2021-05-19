@@ -5,6 +5,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
@@ -13,6 +15,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Random;
 
 public class RSAUtil {
 
@@ -30,26 +33,7 @@ public class RSAUtil {
 		}
 	}
 	
-	public static void sendPublicKey(Socket socketCli, RSAPrivateCrtKey bobPrivate, RSAPublicKey bobPublic) 
-			throws IOException, NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-		PrintWriter cOut = new PrintWriter(socketCli.getOutputStream(), true);
-		System.out.println(bobPublic.toString());
-		cOut.println(bobPublic.getEncoded().length);
-		socketCli.getOutputStream().write(bobPublic.getEncoded());
-		socketCli.getOutputStream().flush();
-	}
-	
-	public static RSAPublicKey recivePublicKey(Socket socket, BufferedReader aliceIn) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
-		int len = Integer.parseInt(aliceIn.readLine());
-		byte[] bobPublic = new byte[len];
-		socket.getInputStream().read(bobPublic,0,len);
-		X509EncodedKeySpec ks = new X509EncodedKeySpec(bobPublic);
-		KeyFactory kf = KeyFactory.getInstance("RSA");
-		Key publicKey = kf.generatePublic(ks);
-		return (RSAPublicKey) publicKey;
-	}
-	
-	public static void verifyChallenge(DataInputStream din, DataOutputStream dout, Signature sig, RSAPublicKey bobPublic) throws IOException, InvalidKeyException, SignatureException {
+	public static void verifyChallenge(DataInputStream din, DataOutputStream dout, Signature sig, RSAPublicKey e) throws IOException, InvalidKeyException, SignatureException {
 		int dataLen = din.readInt(); 
 		byte challenge[] = new byte[dataLen]; 
 		din.read(challenge); 
@@ -59,11 +43,39 @@ public class RSAUtil {
 		System.out.println("The challenge is: " + new String(challenge));
 		System.out.println("------");
 		System.out.println("The signature is " + new String(signature));
-		sig.initVerify(bobPublic);
+		sig.initVerify(e);
 		sig.update(challenge);
 		
 		boolean keyPairMatches = sig.verify(signature);
 		
 		System.out.println("The challenge result is: " + keyPairMatches);
+	}
+	
+	public static BigInteger ofuscateChallenge(String challenge, RSAPublicKey rsaPublicKey) throws UnsupportedEncodingException, NoSuchAlgorithmException, NoSuchProviderException {
+		
+		BigInteger r;
+		
+		byte[] msg = challenge.getBytes("UTF8"); 
+		BigInteger m = new BigInteger(msg);  
+        BigInteger e = rsaPublicKey.getPublicExponent();
+        BigInteger N = rsaPublicKey.getModulus();
+        
+        SecureRandom random = SecureRandom.getInstance("SHA1PRNG", "SUN");
+
+        byte[] randomBytes = new byte[10]; 
+        BigInteger one = new BigInteger("1"); 
+        BigInteger gcd = null; 
+
+        do
+        {
+            random.nextBytes(randomBytes); 
+            r = new BigInteger(randomBytes); 
+            gcd = r.gcd(N); //calculate the gcd for random number r and the  modulus of the keypair
+
+        }
+        while (!gcd.equals(one) || r.compareTo(N) >= 0 || r.compareTo(one) <= 0);
+        
+        
+        return ((r.modPow(e, N)).multiply(m)).mod(N); //H(msg) * r^e mod N
 	}
 }
