@@ -4,7 +4,6 @@ import java.net.*;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
@@ -26,11 +25,8 @@ public class Alice {
 			DataOutputStream dout = new DataOutputStream(socket.getOutputStream());
 			DataInputStream din = new DataInputStream(socket.getInputStream());
 			
-			RSAPublicKey e = recivePublicKey(din);
-			System.out.println(e);
-		
-			
-			Signature sig = Signature.getInstance("SHA256withRSA");
+			RSAPublicKey bobPublicKey = recivePublicKey(din);
+			System.out.println(bobPublicKey);
 			
 			do {
 				System.out.println("Do you want challenge? True: 1 / False: 0");
@@ -42,11 +38,28 @@ public class Alice {
 
 					String msg = "This is the challenge";
 					System.out.println("Message: " + msg);
-					BigInteger challenge = RSAUtil.ofuscateChallenge(msg, e);
-					System.out.println("Message ofiscated: "+challenge);
+					
+					BigInteger blindingFactor = RSAUtil.generateBlindingFactor(bobPublicKey);
+					BigInteger challenge = RSAUtil.ofuscateChallenge(msg, bobPublicKey, blindingFactor);
+					
 					sendChallengeToBob(dout, challenge);
 					
-					//RSAUtil.verifyChallenge(din, dout, sig, e);
+					BigInteger signature = reciveSignature(din);
+					BigInteger s = RSAUtil.extractSignature(signature, bobPublicKey, blindingFactor);
+					
+					System.out.println("BlindingFactor: " + blindingFactor);
+					System.out.println("Message ofiscated: " + challenge);
+					System.out.println("Blind Signature: " + signature);
+			        System.out.println("S: " + s);
+			        
+			        boolean checkSignature = RSAUtil.verifyWithEulersTheorem(s, bobPublicKey, msg);
+			        
+			        if(checkSignature) {
+			        	System.out.println("\nThe signature is correct");
+			        }else {
+
+			        	System.out.println("The signature is not correct");
+			        }
 				} else {
 					System.out.println("Alice does not want any challenge");
 					end = true;
@@ -71,9 +84,19 @@ public class Alice {
 	}
 	
 	public static void sendChallengeToBob(DataOutputStream dout, BigInteger message) throws IOException {
+		System.out.println("Sending information to Bob....");
 		byte[] challenge = new byte[10000];
 		challenge = message.toByteArray();
+		dout.writeInt(challenge.length);
 		dout.write(challenge);
+		System.out.println("Information sent");
+	}
+	
+	public static BigInteger reciveSignature(DataInputStream din) throws IOException {
+		int len = din.readInt();
+		byte[] signature = new byte[len];
+		din.read(signature);
+		return new BigInteger(signature);
 	}
 	
 }

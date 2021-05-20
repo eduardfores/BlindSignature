@@ -4,7 +4,6 @@ import java.net.*;
 import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
 import java.security.SignatureException;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
@@ -40,24 +39,14 @@ public class Bob {
 				String msg = din.readUTF();
 				System.out.println("--- "+msg);
 				if(Boolean.parseBoolean(msg)) {
+					
 					BigInteger challenge = reciveChallenge(din);
+					System.out.println("Ofuscated message: " + challenge);
 					
-					System.out.println(challenge);
+					BigInteger signature = RSAUtil.sign(challenge, bobPrivate);
+					System.out.println("Signature: " + signature);
 					
-					/*System.out.println("Creatig challenge");
-					byte[] challenge = new byte[10000];
-					String str = "This is the challenge string";
-					challenge = str.getBytes();
-					Signature sig = Signature.getInstance("SHA256withRSA");
-					sig.initSign(bobPrivate);
-					sig.update(challenge);
-					byte[] signature = sig.sign();
-
-					System.out.println("Send challenge");
-					dout.writeInt(challenge.length);
-					dout.write(challenge);
-					dout.writeInt(signature.length);
-					dout.write(signature);*/
+					sendSignature(dout, signature);
 				}
 			} while(true);
 		} catch (Exception e) {
@@ -74,6 +63,17 @@ public class Bob {
 	}
 
 	public static BigInteger reciveChallenge(DataInputStream din) throws IOException {
-		return new BigInteger(din.readUTF());
+		int len = din.readInt();
+		byte[] challenge = new byte[len];
+		din.read(challenge);
+		return new BigInteger(challenge);
+	}
+	
+	public static void sendSignature(DataOutputStream dout, BigInteger signature) 
+			throws IOException, NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+		byte[] signatureArray = new byte[10000];
+		signatureArray = signature.toByteArray();
+		dout.writeInt(signatureArray.length);
+		dout.write(signatureArray);
 	}
 }
