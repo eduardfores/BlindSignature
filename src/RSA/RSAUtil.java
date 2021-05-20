@@ -1,47 +1,23 @@
 package RSA;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.RSAKeyGenParameterSpec;
 
 public class RSAUtil {
 
 	public static KeyPair produceKeyPair() {
 		try {
-			
 			KeyPairGenerator rsaKeyPairGenerator = KeyPairGenerator.getInstance("RSA");
-			RSAKeyGenParameterSpec spec = new RSAKeyGenParameterSpec(2048, BigInteger.valueOf(3));
-			rsaKeyPairGenerator.initialize(spec);
-			return rsaKeyPairGenerator.generateKeyPair();
-			
+			rsaKeyPairGenerator.initialize(2048);
+			KeyPair kp = rsaKeyPairGenerator.generateKeyPair();
+			return kp;
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
 		}
-	}
-	
-	public static void verifyChallenge(DataInputStream din, DataOutputStream dout, Signature sig, RSAPublicKey e) throws IOException, InvalidKeyException, SignatureException {
-		int dataLen = din.readInt(); 
-		byte challenge[] = new byte[dataLen]; 
-		din.read(challenge); 
-		int signatureLen = din.readInt(); 
-		byte[] signature = new byte[signatureLen]; 
-		din.read(signature);
-		System.out.println("The challenge is: " + new String(challenge));
-		System.out.println("------");
-		System.out.println("The signature is " + new String(signature));
-		sig.initVerify(e);
-		sig.update(challenge);
-		
-		boolean keyPairMatches = sig.verify(signature);
-		
-		System.out.println("The challenge result is: " + keyPairMatches);
 	}
 	
 	public static BigInteger generateBlindingFactor(RSAPublicKey rsaPublicKey) throws NoSuchAlgorithmException, NoSuchProviderException {
@@ -101,7 +77,7 @@ public class RSAUtil {
         byte[] msg = m.getBytes("UTF8"); 
 		BigInteger mInteger = new BigInteger(msg);
         
-        return mInteger.compareTo(messageFromS) == 0; // if are equals will return 0 and 0 == 0 is true
+        return mInteger.compareTo(messageFromS) == 0; // if they are equals will return 0 and 0 == 0 is true
 	}
 
 }
